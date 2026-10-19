@@ -152,7 +152,14 @@ func scrapeMetricRange(r Range) ([]metric, error) {
 			if err != nil {
 				return nil, fmt.Errorf("can't parse modbus data for %s: %v", definition.Name, err)
 			}
-			metrics = append(metrics, newMetricFromRaw(definition, raw))
+			m := metric{definition.Name, definition.Help, definition.Labels, scaleValue(definition.Factor, raw), definition.MetricType}
+			for _, sv := range definition.SpecialValues {
+				if raw == *sv.Value {
+					m = newSpecialValueMetric(definition, sv.Meaning, raw)
+					break
+				}
+			}
+			metrics = append(metrics, m)
 		}
 	}
 

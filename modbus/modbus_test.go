@@ -697,6 +697,64 @@ func TestScrapeMetricSpecialValues(t *testing.T) {
 	}
 }
 
+func TestScrapeMetricRangeSpecialValues(t *testing.T) {
+	special := 65535.0
+	factor := 0.5
+
+	def := func(name string, address config.RegisterAddr) config.MetricDef {
+		return config.MetricDef{
+			Name:          name,
+			Address:       address,
+			DataType:      config.ModbusUInt16,
+			MetricType:    config.MetricTypeCounter,
+			Factor:        &factor,
+			SpecialValues: []config.SpecialValueDef{{Value: &special, Meaning: "data pending"}},
+		}
+	}
+
+	r := Range{
+		ReadFunction: func(address, quantity uint16) ([]byte, error) {
+			return []byte{0x00, 0x0a, 0xff, 0xff}, nil
+		},
+		metricDefinitions: [][]config.MetricDef{{def("watt_hours_1", 301220), def("watt_hours_2", 301221)}},
+	}
+
+	metrics, err := scrapeMetricRange(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []metric{
+		{
+			Name:       "watt_hours_1",
+			Value:      5,
+			MetricType: config.MetricTypeCounter,
+		},
+		{
+			Name:       config.SpecialValueMetricName,
+			Help:       specialValueHelp,
+			Labels:     map[string]string{"reading": "watt_hours_2", "address": "301221", "meaning": "data pending"},
+			Value:      65535,
+			MetricType: config.MetricTypeGauge,
+		},
+	}
+
+	if len(metrics) != len(expected) {
+		t.Fatalf("expected %d metrics but got %d", len(expected), len(metrics))
+	}
+
+	for i, m := range metrics {
+		e := expected[i]
+		if m.Name != e.Name || m.Help != e.Help || m.Value != e.Value || m.MetricType != e.MetricType {
+			t.Fatalf("expected %+v but got %+v", e, m)
+		}
+
+		if e.Labels != nil && !maps.Equal(m.Labels, e.Labels) {
+			t.Fatalf("expected labels %v but got %v", e.Labels, m.Labels)
+		}
+	}
+}
+
 func TestRegisterMetricsSpecialValueCaught(t *testing.T) {
 	reg := prometheus.NewRegistry()
 

@@ -322,18 +322,6 @@ func newSpecialValueMetric(definition config.MetricDef, meaning string, raw floa
 	}
 }
 
-// newMetricFromRaw builds the metric for definition from its unscaled value,
-// exposing it as a special value metric when it matches one.
-func newMetricFromRaw(definition config.MetricDef, raw float64) metric {
-	for _, sv := range definition.SpecialValues {
-		if raw == *sv.Value {
-			return newSpecialValueMetric(definition, sv.Meaning, raw)
-		}
-	}
-	v := scaleValue(definition.Factor, raw)
-	return metric{definition.Name, definition.Help, definition.Labels, v, definition.MetricType}
-}
-
 // InsufficientRegistersError is returned in Parse() whenever not enough
 // registers are provided for the given data type.
 type InsufficientRegistersError struct {
